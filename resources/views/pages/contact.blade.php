@@ -192,6 +192,7 @@
                     <div class="office-address">
                         <p class="address-line">Ringlaan 17A -2960</p>
                         <p class="address-line">Brecht- Belgium</p>
+                        <p class="address-line">BE 1035.602.385</p>
                     </div>
                     <div class="office-contact">
                         <p class="contact-email">finance@smartify-tech.com</p>
