@@ -73,8 +73,8 @@ class RegistrationController extends Controller
         $data = $validatedData;
         // $data['password'] = Hash::make($request->password); //16.01.2026
         $data['password'] = Hash::make('12345678');
-        $data['accountant_name'] = "demo"
-        $data['accountant_email'] = "ac@gmail.com";
+        // $data['accountant_name'] = "demo"
+        // $data['accountant_email'] = "ac@gmail.com";
 
         $fileFields = [
             'company_incorporation_cert',
