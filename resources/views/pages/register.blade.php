@@ -121,14 +121,14 @@
                                 <label for="delivery_address" class="form-label">{{ __('messages.delivery_address') }}</label>
                                 <input type="text" id="delivery_address" name="delivery_address" class="form-input" placeholder="{{ __('messages.delivery_address') }}">
                             </div>
-                            <div class="form-group">
+                            <!-- <div class="form-group">
                                 <label for="accountant_name" class="form-label">{{ __('messages.accountant_name_star') }}</label>
                                 <input type="text" id="accountant_name" name="accountant_name" class="form-input" placeholder="{{ __('messages.accountant_name') }}" required>
                             </div>
                             <div class="form-group">
                                 <label for="accountant_email" class="form-label">{{ __('messages.accountant_email_star') }}</label>
                                 <input type="email" id="accountant_email" name="accountant_email" class="form-input" placeholder="{{ __('messages.accountant_email') }}" required>
-                            </div>
+                            </div> -->
                             <div class="form-group">
                                 <label for="company_reg_no" class="form-label">{{ __('messages.company_reg_no_star') }}</label>
                                 <input type="text" id="company_reg_no" name="company_reg_no" class="form-input" placeholder="{{ __('messages.reg_no') }}" required>

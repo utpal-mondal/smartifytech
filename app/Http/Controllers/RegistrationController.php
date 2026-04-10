@@ -35,8 +35,8 @@ class RegistrationController extends Controller
             'legal_entity' => 'required|string|max:255',
             'ceo_name' => 'required|string|max:255',
             'invoice_address' => 'required|string|max:255',
-            'accountant_name' => 'required|string|max:255',
-            'accountant_email' => 'required|email|max:255',
+            // 'accountant_name' => 'required|string|max:255',
+            // 'accountant_email' => 'required|email|max:255',
             'company_reg_no' => 'required|string|max:255',
             'vat_reg_no' => 'required|string|max:255',
             'num_employees' => 'required|integer',
@@ -73,6 +73,8 @@ class RegistrationController extends Controller
         $data = $validatedData;
         // $data['password'] = Hash::make($request->password); //16.01.2026
         $data['password'] = Hash::make('12345678');
+        $data['accountant_name'] = "demo"
+        $data['accountant_email'] = "ac@gmail.com";
 
         $fileFields = [
             'company_incorporation_cert',
