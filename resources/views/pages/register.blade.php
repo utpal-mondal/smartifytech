@@ -183,10 +183,10 @@
                                 <label for="bank_phone" class="form-label">{{ __('messages.phone_number_star') }}</label>
                                 <input type="tel" id="bank_phone" name="bank_phone" class="form-input" placeholder="06" required>
                             </div>
-                            <div class="form-group">
+                            <!-- <div class="form-group">
                                 <label for="years_with_bank" class="form-label">{{ __('messages.years_with_bank_star') }}</label>
-                                <input type="number" id="years_with_bank" name="years_with_bank" class="form-input" placeholder="{{ __('messages.years') }}" required>
-                            </div>
+                                <input type="number" id="years_with_bank" name="years_with_bank_star" class="form-input" placeholder="{{ __('messages.years') }}" required>
+                            </div> -->
                         </div>
                     </div>
                     

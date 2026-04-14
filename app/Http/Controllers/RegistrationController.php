@@ -48,7 +48,7 @@ class RegistrationController extends Controller
             'country_of_bank' => 'required|string|max:255',
             'account_holder' => 'required|string|max:255',
             'bank_phone' => 'required|string|max:255',
-            'years_with_bank' => 'required|integer',
+            'years_with_bank' => 'nullable|integer',
             'email_orders' => 'required|boolean',
             'phone_orders' => 'required|boolean',
             'telephone_orders' => 'required|boolean',
@@ -73,7 +73,7 @@ class RegistrationController extends Controller
         $data = $validatedData;
         // $data['password'] = Hash::make($request->password); //16.01.2026
         $data['password'] = Hash::make('12345678');
-        $data['accountant_name'] = "demo"
+        $data['accountant_name'] = "demo";
         $data['accountant_email'] = "ac@gmail.com";
 
         $fileFields = [

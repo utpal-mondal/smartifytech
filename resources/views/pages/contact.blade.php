@@ -195,7 +195,7 @@
                         <p class="address-line">BE 1035.602.385</p>
                     </div>
                     <div class="office-contact">
-                        <p class="contact-email">finance@smartify-tech.com</p>
+                        <p class="contact-email">info@smartify-tech.com</p>
                         <p class="contact-phone">+32  465595848</p>
                     </div>
                 </div>
