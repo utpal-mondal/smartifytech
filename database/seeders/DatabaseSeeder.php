@@ -18,6 +18,9 @@ class DatabaseSeeder extends Seeder
         $this->call([
             SmartifyTechSeeder::class,
             UserSeeder::class,
+            PriceListSeeder::class,
+            ProductSeeder::class,
+            OrderSeeder::class,
         ]);
     }
 }

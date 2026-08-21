@@ -30,6 +30,40 @@
         </svg>
     </a>
 
+    <!-- Chatbox -->
+    <button type="button" class="chatbox-toggle" id="chatboxToggle" title="Chat with us">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="white">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+    </button>
+    <div class="chatbox-panel" id="chatboxPanel">
+        <div class="chatbox-header">
+            <span class="chatbox-title">Customer Service</span>
+            <button type="button" class="chatbox-close" id="chatboxClose" aria-label="Close">&times;</button>
+        </div>
+        <div class="chatbox-body">
+            <div class="chatbox-prechat" id="chatboxPrechat">
+                <p class="chatbox-prechat-text">Please introduce yourself so we can help you better.</p>
+                <input type="text" id="chatboxName" class="chatbox-prechat-input" placeholder="Your name" autocomplete="name">
+                <input type="email" id="chatboxEmail" class="chatbox-prechat-input" placeholder="Your email" autocomplete="email">
+                <span class="chatbox-prechat-error" id="chatboxPrechatError"></span>
+                <button type="button" id="chatboxStart" class="chatbox-send">Start chat</button>
+            </div>
+            <div class="chatbox-conversation" id="chatboxConversation">
+                <div class="chatbox-messages" id="chatboxMessages">
+                    <div class="chat-message agent">
+                        <div class="chat-bubble">Hello! How can I help you today?</div>
+                        <span class="chat-time">Now</span>
+                    </div>
+                </div>
+                <div class="chatbox-input">
+                    <input type="text" id="chatboxInput" placeholder="Type a message..." autocomplete="off">
+                    <button type="button" id="chatboxSend" class="chatbox-send">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modern Top Bar -->
     <header class="modern-header">
         <div class="header-container">
@@ -132,6 +166,119 @@
                     setTimeout(function() {
                         successAlert.style.display = 'none';
                     }, 300);
+                });
+            }
+        });
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggle = document.getElementById('chatboxToggle');
+            const panel = document.getElementById('chatboxPanel');
+            const close = document.getElementById('chatboxClose');
+            const messages = document.getElementById('chatboxMessages');
+            const input = document.getElementById('chatboxInput');
+            const send = document.getElementById('chatboxSend');
+            const prechat = document.getElementById('chatboxPrechat');
+            const prechatError = document.getElementById('chatboxPrechatError');
+            const conversation = document.getElementById('chatboxConversation');
+            const nameField = document.getElementById('chatboxName');
+            const emailField = document.getElementById('chatboxEmail');
+            const start = document.getElementById('chatboxStart');
+
+            let visitor = { name: '', email: '' };
+
+            function formatTime(date) {
+                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+
+            function escapeHtml(text) {
+                return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+            }
+
+            function addMessage(text, sender) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'chat-message ' + sender;
+                wrapper.innerHTML = '<div class="chat-bubble">' + escapeHtml(text) + '</div><span class="chat-time">' + formatTime(new Date()) + '</span>';
+                messages.appendChild(wrapper);
+                messages.scrollTop = messages.scrollHeight;
+            }
+
+            function agentReply(text) {
+                fetch('/chat/message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    },
+                    body: JSON.stringify({ message: text, name: visitor.name, email: visitor.email }),
+                })
+                    .then(function(response) {
+                        return response.json();
+                    })
+                    .then(function(data) {
+                        addMessage(data.message, 'agent');
+                    })
+                    .catch(function() {
+                        addMessage('Sorry, I could not process your request right now.', 'agent');
+                    });
+            }
+
+            function sendMessage() {
+                const text = input.value.trim();
+                if (!text) return;
+                addMessage(text, 'user');
+                input.value = '';
+                agentReply(text);
+            }
+
+            if (toggle && panel) {
+                toggle.addEventListener('click', function() {
+                    panel.classList.toggle('open');
+                });
+
+                if (close) {
+                    close.addEventListener('click', function() {
+                        panel.classList.remove('open');
+                    });
+                }
+            }
+
+            function startChat() {
+                const name = nameField.value.trim();
+                const email = emailField.value.trim();
+
+                if (!name || !email) {
+                    prechatError.textContent = 'Please enter your name and email.';
+                    return;
+                }
+
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                    prechatError.textContent = 'Please enter a valid email address.';
+                    return;
+                }
+
+                prechatError.textContent = '';
+                visitor = { name: name, email: email };
+                prechat.classList.add('hidden');
+                conversation.classList.add('active');
+                messages.scrollTop = messages.scrollHeight;
+                input.focus();
+            }
+
+            if (start) {
+                start.addEventListener('click', startChat);
+                [nameField, emailField].forEach(function(field) {
+                    field.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') startChat();
+                    });
+                });
+            }
+
+            if (send && input) {
+                send.addEventListener('click', sendMessage);
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') sendMessage();
                 });
             }
         });
