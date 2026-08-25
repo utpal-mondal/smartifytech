@@ -22,7 +22,7 @@ class AiServices
      */
     public function reply(string $message): string
     {
-        $apiKey = confbig('services.openai.key');
+        $apiKey = config('services.openai.key');
 
         if (empty($apiKey)) {
             return 'The assistant is not configured right now. Please try again later.';
@@ -34,7 +34,10 @@ class AiServices
                 'content' => 'You are a helpful customer service agent for Smartify Tech, a wholesaler of consumer electronics. '
                     . 'Keep answers short and friendly. When a customer asks about stock, quantity, or whether a product is in stock, '
                     . 'use the get_product_stock tool. When the customer asks whether a product is available or wants to search for a product, '
-                    . 'use the search_products tool. Base your answer only on the tool result. '
+                    . 'use the search_products tool. When the customer asks about an order status, use the get_order_status tool. '
+                    . 'When the customer asks for all product types, brands, or categories, use the get_typeof_products tool. '
+                    . 'When the customer asks for all models in a brand or product type, use the get_modelfrom_type tool with the type/brand argument. '
+                    . 'Base your answer only on the tool result. '
                     . 'If the tool says the product is out of stock or not available, tell the customer the product is not available.',
             ],
             ['role' => 'user', 'content' => $message],
@@ -116,6 +119,9 @@ class AiServices
         return match ($name) {
             'get_product_stock' => $this->tools->getProductStock($arguments['product'] ?? ''),
             'search_products' => $this->tools->searchProducts($arguments['product_name'] ?? ''),
+            'get_order_status' => $this->tools->getOrderStatus($arguments['order_number'] ?? ''),
+            'get_typeof_products' => $this->tools->getTypeOfProducts(),
+            'get_modelfrom_type' => $this->tools->getModelFromType($arguments['type'] ?? ''),
             default => 'Unknown tool.',
         };
     }
@@ -159,6 +165,51 @@ class AiServices
                             ],
                         ],
                         'required' => ['product_name'],
+                    ],
+                ],
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_order_status',
+                    'description' => 'Get the status of a customer order by order number or order ID.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'order_number' => [
+                                'type' => 'string',
+                                'description' => 'The order number or order ID, for example "O20260001".',
+                            ],
+                        ],
+                        'required' => ['order_number'],
+                    ],
+                ],
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_typeof_products',
+                    'description' => 'Get the list of all product types or brands available in the store, such as iPhone, Samsung, OnePlus, etc.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => (object) [],
+                    ],
+                ],
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_modelfrom_type',
+                    'description' => 'Get all product models for a specific product type or brand.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'type' => [
+                                'type' => 'string',
+                                'description' => 'The product type or brand name, for example "iPhone" or "Samsung".',
+                            ],
+                        ],
+                        'required' => ['type'],
                     ],
                 ],
             ],

@@ -205,7 +205,7 @@
             }
 
             function agentReply(text) {
-                fetch('/chat/message', {
+                fetch('/api/chat/message', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

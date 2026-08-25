@@ -142,7 +142,7 @@ Route::prefix('admin')->group(function () {
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 
-Route::post('/chat/message', [\App\Http\Controllers\AiController::class, 'chat'])->name('chat.message');
+
 
 
 

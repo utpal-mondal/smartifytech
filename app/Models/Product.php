@@ -17,6 +17,7 @@ class Product extends Model
         'pdf_name',
         'quantity',
         'model',
+        'type',
         'price'
     ];
 

@@ -7,7 +7,7 @@ The chatbox on the frontend is backed by an AI service that uses OpenAI's functi
 ## Components
 
 - **Chatbox UI** (`resources/views/layouts/app.blade.php`, `public/css/whatsapp.css`)
-- **Chat API** (`app/Http/Controllers/AiController.php`)
+- **Chat API** (`routes/api.php`, `app/Http/Controllers/AiController.php`)
 - **AI Service** (`app/Services/AiServices.php`)
 - **AI Tool Service** (`app/Services/AiToolServices.php`)
 - **Conversations / Messages tables** (`chat_conversations`, `chat_messages`)
@@ -19,10 +19,11 @@ The chatbox on the frontend is backed by an AI service that uses OpenAI's functi
    - After clicking **Start chat**, the pre-chat form is hidden and the conversation area is shown.
 
 2. **Visitor sends a message**
-   - Chatbox posts `POST /chat/message` with:
+   - Chatbox posts `POST /api/chat/message` with:
      - `message`
      - `name`
      - `email`
+   - The route lives in `routes/api.php` and uses `web` middleware so session and CSRF protection still work.
    - The request includes the Laravel CSRF token.
 
 3. **Controller handles the request** (`AiController::chat`)
@@ -80,11 +81,11 @@ php artisan config:clear
 
 ## Demo Product Names
 
-The `ProductSeeder` creates:
+The `ProductSeeder` creates 50 demo products, for example:
 
-- `SM-1000`
-- `SM-2000`
-- `SM-3000`
+- `SM-1001`
+- `SM-1025`
+- `SM-1050`
 
 You can ask the chatbox:
 
