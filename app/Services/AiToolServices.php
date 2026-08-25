@@ -91,7 +91,12 @@ class AiToolServices
             return 'No product types or brands available.';
         }
 
-        return 'Available brands: ' . implode(', ', array_map('ucfirst', $types));
+        $lines = [];
+        foreach ($types as $index => $type) {
+            $lines[] = ($index + 1) . '. ' . ucfirst($type);
+        }
+
+        return "Available brands:\n" . implode("\n", $lines);
     }
 
     /**
@@ -119,7 +124,48 @@ class AiToolServices
             return 'No models found for that brand or type.';
         }
 
-        return 'Models for ' . $type . ': ' . implode(', ', $models);
+        $lines = [];
+        foreach ($models as $index => $model) {
+            $lines[] = ($index + 1) . '. ' . $model;
+        }
+
+        return 'Models for ' . ucfirst($type) . ":\n" . implode("\n", $lines);
+    }
+
+    /**
+     * Get stock and availability for all models in a product type or brand.
+     *
+     * @param string $type
+     * @return string
+     */
+    public function getStockByType($type): string
+    {
+        $type = trim($type);
+
+        if (empty($type)) {
+            return 'Please provide a brand or product type.';
+        }
+
+        $products = Product::where('type', 'like', '%' . strtolower($type) . '%')
+            ->orderBy('model')
+            ->get();
+
+        if ($products->isEmpty()) {
+            return 'No products found for that brand or type.';
+        }
+
+        $lines = [];
+        foreach ($products as $index => $product) {
+            $quantity = (int) $product->quantity;
+
+            if ($quantity > 0) {
+                $lines[] = ($index + 1) . '. ' . $product->model . ' - in stock, quantity: ' . $quantity . ' - available';
+            } else {
+                $lines[] = ($index + 1) . '. ' . $product->model . ' - out of stock - not available';
+            }
+        }
+
+        return 'Stock for ' . ucfirst($type) . ":\n" . implode("\n", $lines);
     }
 
     /**

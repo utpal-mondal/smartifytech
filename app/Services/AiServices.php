@@ -37,8 +37,12 @@ class AiServices
                     . 'use the search_products tool. When the customer asks about an order status, use the get_order_status tool. '
                     . 'When the customer asks for all product types, brands, or categories, use the get_typeof_products tool. '
                     . 'When the customer asks for all models in a brand or product type, use the get_modelfrom_type tool with the type/brand argument. '
+                    . 'When the customer asks about stock or availability for all models in a brand or product type, '
+                    . 'use the get_stock_by_type tool with the type/brand argument. '
                     . 'Base your answer only on the tool result. '
-                    . 'If the tool says the product is out of stock or not available, tell the customer the product is not available.',
+                    . 'When a tool returns a numbered list, keep each item on its own line and do not combine them into one long sentence. '
+                    . 'Do not use Markdown formatting such as **. '
+                    . 'If the tool says the product is out of stock or not available, tell the customer the product is not available.'
             ],
             ['role' => 'user', 'content' => $message],
         ];
@@ -122,6 +126,7 @@ class AiServices
             'get_order_status' => $this->tools->getOrderStatus($arguments['order_number'] ?? ''),
             'get_typeof_products' => $this->tools->getTypeOfProducts(),
             'get_modelfrom_type' => $this->tools->getModelFromType($arguments['type'] ?? ''),
+            'get_stock_by_type' => $this->tools->getStockByType($arguments['type'] ?? ''),
             default => 'Unknown tool.',
         };
     }
@@ -201,6 +206,23 @@ class AiServices
                 'function' => [
                     'name' => 'get_modelfrom_type',
                     'description' => 'Get all product models for a specific product type or brand.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'type' => [
+                                'type' => 'string',
+                                'description' => 'The product type or brand name, for example "iPhone" or "Samsung".',
+                            ],
+                        ],
+                        'required' => ['type'],
+                    ],
+                ],
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_stock_by_type',
+                    'description' => 'Get the stock and availability status for all models in a specific product type or brand, including out of stock items.',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
