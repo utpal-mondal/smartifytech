@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Product;
 use App\Models\Order;
+use App\Models\ChatConversation;
 
 class AiToolServices
 {
@@ -96,7 +97,7 @@ class AiToolServices
             $lines[] = ($index + 1) . '. ' . ucfirst($type);
         }
 
-        return "Available brands:\n" . implode("\n", $lines);
+        return "Available smartphone brands:\n" . implode("\n", $lines);
     }
 
     /**
@@ -166,6 +167,26 @@ class AiToolServices
         }
 
         return 'Stock for ' . ucfirst($type) . ":\n" . implode("\n", $lines);
+    }
+
+    /**
+     * Save the customer's phone number to the conversation.
+     *
+     * @param ChatConversation $conversation
+     * @param string $phone
+     * @return string
+     */
+    public function updatePhone(ChatConversation $conversation, $phone): string
+    {
+        $phone = trim($phone);
+
+        if (empty($phone)) {
+            return 'Please provide a valid phone number.';
+        }
+
+        $conversation->update(['phone' => $phone]);
+
+        return 'Thank you. Our executive will contact you shortly. Is there anything else you need help with?';
     }
 
     /**

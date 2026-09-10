@@ -15,6 +15,7 @@ class ChatConversation extends Model
         'session_id',
         'name',
         'email',
+        'phone',
         'ip_address',
         'user_agent',
         'last_message_at',

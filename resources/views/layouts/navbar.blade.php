@@ -30,6 +30,18 @@
                 Banner List
             </a>
 
+            <a href="{{ route('admin.chat-history') }}"
+               class="block py-2 px-4
+               {{ request()->is('admin/chat-history*') ? 'bg-blue-600 text-white' : 'text-gray-700' }}">
+                Chat History
+            </a>
+
+            <a href="{{ route('admin.enquiries') }}"
+               class="block py-2 px-4
+               {{ request()->is('admin/enquiries*') ? 'bg-blue-600 text-white' : 'text-gray-700' }}">
+                Enquiry
+            </a>
+
         @endif
     </nav>
 

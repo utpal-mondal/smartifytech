@@ -9,6 +9,8 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\BannerController;
+use App\Http\Controllers\ChatHistoryController;
+use App\Http\Controllers\EnquiryController;
 use App\Http\Controllers\LocalizationController;
 
 /*
@@ -135,6 +137,15 @@ Route::prefix('admin')->group(function () {
 
     Route::post('/banner/destroy/{id}', [BannerController::class, 'destroy'])
         ->name('admin.banner.destroy')->middleware('auth');
+
+    Route::get('/chat-history', [ChatHistoryController::class, 'index'])
+        ->name('admin.chat-history')->middleware('auth');
+
+    Route::get('/chat-history/{id}', [ChatHistoryController::class, 'show'])
+        ->name('admin.chat-history.show')->middleware('auth');
+
+    Route::get('/enquiries', [EnquiryController::class, 'index'])
+        ->name('admin.enquiries')->middleware('auth');
 
 });
 

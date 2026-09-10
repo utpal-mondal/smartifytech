@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use App\Models\ChatConversation;
 
 class AiServices
 {
@@ -18,14 +19,26 @@ class AiServices
      * Generate a customer service reply for the given user message.
      *
      * @param string $message
+     * @param ChatConversation $conversation
      * @return string
      */
-    public function reply(string $message): string
+    public function reply(string $message, ChatConversation $conversation): string
     {
         $apiKey = config('services.openai.key');
 
         if (empty($apiKey)) {
             return 'The assistant is not configured right now. Please try again later.';
+        }
+
+        // If the previous turn asked for a phone number and the user provided one, save it directly
+        $lastAgentMessage = $conversation->messages()->where('role', 'agent')->latest()->first()?->message ?? '';
+        if (stripos($lastAgentMessage, 'phone number') !== false) {
+            $phone = $this->looksLikePhone($message);
+            if ($phone) {
+                return $this->tools->updatePhone($conversation, $phone);
+            }
+
+            return 'Invalid phone number. Please enter a valid phone number.';
         }
 
         $messages = [
@@ -39,10 +52,14 @@ class AiServices
                     . 'When the customer asks for all models in a brand or product type, use the get_modelfrom_type tool with the type/brand argument. '
                     . 'When the customer asks about stock or availability for all models in a brand or product type, '
                     . 'use the get_stock_by_type tool with the type/brand argument. '
+                    . 'If a customer asks for information not covered by these tools, or wants to speak to a person, or wants more details, '
+                    . 'politely ask for their phone number and say our executive will contact them shortly. '
+                    . 'If the customer provides a phone number, call the update_phone tool with the phone number. '
+                    . 'If you asked for a phone number in the previous turn and the customer replies with a number, always call update_phone and never treat that number as a product or order ID. '
                     . 'Base your answer only on the tool result. '
                     . 'When a tool returns a numbered list, keep each item on its own line and do not combine them into one long sentence. '
                     . 'Do not use Markdown formatting such as **. '
-                    . 'If the tool says the product is out of stock or not available, tell the customer the product is not available.'
+                    . 'If the tool says the product is out of stock or not available, tell the customer the product is not available.',
             ],
             ['role' => 'user', 'content' => $message],
         ];
@@ -65,7 +82,7 @@ class AiServices
                     $messages[] = [
                         'role' => 'tool',
                         'tool_call_id' => $toolCall['id'],
-                        'content' => $this->runTool($toolCall['function']['name'] ?? '', $arguments),
+                        'content' => $this->runTool($toolCall['function']['name'] ?? '', $arguments, $conversation),
                     ];
                 }
 
@@ -84,6 +101,36 @@ class AiServices
             Log::error('AI chat reply failed: ' . $e->getMessage());
             return 'Sorry, I could not process your request right now.';
         }
+    }
+
+    /**
+     * Check whether a message is or contains a phone number and return the phone number.
+     *
+     * @param string $message
+     * @return string|null
+     */
+    private function looksLikePhone(string $message): ?string
+    {
+        $message = trim($message);
+
+        // Whole message is a phone number with optional formatting
+        if (preg_match('/^[\d\s\+\-\(\)\.\/]+$/', $message)) {
+            $digits = preg_replace('/\D/', '', $message);
+            if (strlen($digits) >= 7) {
+                return $message;
+            }
+        }
+
+        // Look for a phone-like number anywhere in the message
+        if (preg_match('/(?:\+\d{1,3}[\s\-]?)?\(?\d{1,5}\)?[\s\-\.]?\d{1,5}[\s\-\.]?\d{1,6}[\s\-\.]?\d{0,6}/', $message, $matches)) {
+            $phone = trim($matches[0]);
+            $digits = preg_replace('/\D/', '', $phone);
+            if (strlen($digits) >= 7) {
+                return $phone;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -116,9 +163,10 @@ class AiServices
      *
      * @param string $name
      * @param array $arguments
+     * @param ChatConversation $conversation
      * @return string
      */
-    private function runTool(string $name, array $arguments): string
+    private function runTool(string $name, array $arguments, ChatConversation $conversation): string
     {
         return match ($name) {
             'get_product_stock' => $this->tools->getProductStock($arguments['product'] ?? ''),
@@ -127,6 +175,7 @@ class AiServices
             'get_typeof_products' => $this->tools->getTypeOfProducts(),
             'get_modelfrom_type' => $this->tools->getModelFromType($arguments['type'] ?? ''),
             'get_stock_by_type' => $this->tools->getStockByType($arguments['type'] ?? ''),
+            'update_phone' => $this->tools->updatePhone($conversation, $arguments['phone'] ?? ''),
             default => 'Unknown tool.',
         };
     }
@@ -232,6 +281,23 @@ class AiServices
                             ],
                         ],
                         'required' => ['type'],
+                    ],
+                ],
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'update_phone',
+                    'description' => 'Save the customer phone number to the conversation when the customer provides it so an executive can contact them. Call this whenever a customer provides a phone number and never confuse phone numbers with product or order IDs.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'phone' => [
+                                'type' => 'string',
+                                'description' => 'The customer phone number.',
+                            ],
+                        ],
+                        'required' => ['phone'],
                     ],
                 ],
             ],

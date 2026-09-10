@@ -25,10 +25,12 @@ class AiController extends Controller
         ]);
 
         $conversation = ChatConversation::firstOrCreate(
-            ['session_id' => $request->session()->getId()],
             [
+                'session_id' => $request->session()->getId(),
                 'name' => $validated['name'] ?? null,
                 'email' => $validated['email'] ?? null,
+            ],
+            [
                 'ip_address' => $request->ip(),
                 'user_agent' => substr((string) $request->userAgent(), 0, 255),
             ]
@@ -39,7 +41,7 @@ class AiController extends Controller
             'message' => $validated['message'],
         ]);
 
-        $reply = $ai->reply($validated['message']);
+        $reply = $ai->reply($validated['message'], $conversation);
 
         $conversation->messages()->create([
             'role' => 'agent',
