@@ -225,6 +225,44 @@
     margin-top: 4px !important;
 }
 
+.typing-dots {
+    display: flex !important;
+    gap: 4px !important;
+    align-items: center !important;
+    padding: 4px 2px !important;
+}
+
+.typing-dots .dot {
+    width: 6px !important;
+    height: 6px !important;
+    background: #999 !important;
+    border-radius: 50% !important;
+    animation: fadeDot 1.4s infinite ease-in-out both !important;
+}
+
+.typing-dots .dot:nth-child(1) {
+    animation-delay: -0.32s !important;
+}
+
+.typing-dots .dot:nth-child(2) {
+    animation-delay: -0.16s !important;
+}
+
+.typing-dots .dot:nth-child(3) {
+    animation-delay: 0s !important;
+}
+
+@keyframes fadeDot {
+    0%, 80%, 100% {
+        opacity: 0.2 !important;
+        transform: scale(0.8) !important;
+    }
+    40% {
+        opacity: 1 !important;
+        transform: scale(1) !important;
+    }
+}
+
 .chatbox-input {
     display: flex !important;
     flex: 0 0 auto !important;

@@ -72,22 +72,40 @@ class AiToolServices
             return 'Please provide a product name.';
         }
 
-        $product = ChatbotProduct::whereRaw('LOWER(product_name) LIKE ?', ['%' . strtolower($query) . '%'])           
-            ->first();
+        $words = array_filter(explode(' ', strtolower($query)));
 
-        if (!$product) {
+        $products = ChatbotProduct::query();
+        foreach ($words as $word) {
+            $products->whereRaw('LOWER(product_name) LIKE ?', ['%' . $word . '%']);
+        }
+
+        $products = $products->where('isactive', 1)
+            ->orderBy('product_name')
+            ->get();
+
+        if ($products->isEmpty()) {
             return 'Invalid product name or no product available with this name.';
         }
 
-        return $this->formatChatbotProductPrice($product);
+        $count = $products->count();
+
+        if ($count > 100) {
+            return 'I found ' . $count . ' matching products. Please provide a more specific name or model, including storage or RAM (for example, "Apple iPhone 11 64GB"), so I can show the matching products and prices.';
+        }
+
+        if ($count === 1) {
+            return $this->formatChatbotProductPrice($products->first());
+        }
+
+        $lines = [];
+        foreach ($products as $index => $product) {
+            $lines[] = ($index + 1) . '. ' . $product->product_name . ' - ' . number_format((float) $product->product_price, 2);
+        }
+
+        return 'Found ' . $count . " products:\n" . implode("\n", $lines);
     }
 
-    /**
-     * Get the status of an order by order number or ID.
-     *
-     * @param string $query
-     * @return string
-     */
+    /*
     public function getOrderStatus($query): string
     {
         $query = trim($query);
@@ -104,6 +122,7 @@ class AiToolServices
 
         return 'Order ' . $order->order_number . ' status: ' . $order->status;
     }
+    */
 
     /**
      * Get all product types (brands) available in the store.
@@ -146,7 +165,8 @@ class AiToolServices
             return 'brand Not Found.';
         }
 
-        $models = ChatbotProduct::where('brand_id', $brand->id)            
+        $models = ChatbotProduct::where('brand_id', $brand->id)
+            ->where('isactive', 1)
             ->orderBy('product_name')
             ->pluck('product_name')
             ->unique()
@@ -260,18 +280,22 @@ class AiToolServices
     private function findChatbotProduct(string $query): ?ChatbotProduct
     {
         if (is_numeric($query)) {
-            $product = ChatbotProduct::find($query);
+            $product = ChatbotProduct::where('id', $query)
+                ->where('isactive', 1)
+                ->first();
             if ($product) {
                 return $product;
             }
         }
 
-        $product = ChatbotProduct::whereRaw('LOWER(product_name) = ?', [strtolower($query)])->first();
+        $product = ChatbotProduct::whereRaw('LOWER(product_name) = ?', [strtolower($query)])
+            ->where('isactive', 1)
+            ->first();
         if ($product) {
             return $product;
         }
 
-        $products = ChatbotProduct::all();
+        $products = ChatbotProduct::where('isactive', 1)->get();
         foreach ($products as $product) {
             if (!empty($product->product_name) && stripos($query, $product->product_name) !== false) {
                 return $product;
@@ -281,12 +305,7 @@ class AiToolServices
         return null;
     }
 
-    /**
-     * Find an order by numeric ID, exact order number, or order number contained in the query.
-     *
-     * @param string $query
-     * @return Order|null
-     */
+    /*
     private function findOrder(string $query): ?Order
     {
         if (is_numeric($query)) {
@@ -310,6 +329,7 @@ class AiToolServices
 
         return null;
     }
+    */
 
     /**
      * Format the price response for a chatbot product.

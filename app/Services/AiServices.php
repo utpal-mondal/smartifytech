@@ -41,27 +41,47 @@ class AiServices
             return 'Invalid phone number. Please enter a valid phone number.';
         }
 
-        $messages = [
-            [
-                'role' => 'system',
-                'content' => 'You are a helpful customer service agent for Smartify Tech, a wholesaler of consumer electronics. '
-                    . 'Keep answers short and friendly. When a customer asks about product price, stock, quantity, availability, or any product-specific detail, '
-                    . 'use one of the product tools: get_product_stock for a single product stock/quantity, get_product_price for a single product price, search_products to check availability, get_typeof_products for all brands, get_modelfrom_type for models in a brand, or get_stock_by_type for stock by brand. '
-                    . 'When the customer asks about an order status, use the get_order_status tool. '
-                    . 'When the customer asks for all product types, brands, or categories, use the get_typeof_products tool. '
-                    . 'When the customer asks for all models in a brand or product type, use the get_modelfrom_type tool with the type/brand argument. '
-                    . 'When the customer asks about stock or availability for all models in a brand or product type, use the get_stock_by_type tool with the type/brand argument. '
-                    . 'If a product tool returns that a product is not found or not available, respond with "Invalid product name or no product available with this name." Do not ask for a phone number for product questions. '
-                    . 'Only ask for a phone number when the customer has a general question not about products, brands, models, stock, availability, or orders, or when they explicitly ask to speak to a person. '
-                    . 'If the customer provides a phone number, call the update_phone tool with the phone number. '
-                    . 'If you asked for a phone number in the previous turn and the customer replies with a number, always call update_phone and never treat that number as a product or order ID. '
-                    . 'Base your answer only on the tool result. '
-                    . 'When a tool returns a numbered list, keep each item on its own line and do not combine them into one long sentence. '
-                    . 'Do not use Markdown formatting such as **. '
-                    . 'If a tool says a product is out of stock, tell the customer the product is not available.',
-            ],
-            ['role' => 'user', 'content' => $message],
+        $phoneNote = !empty($conversation->phone)
+            ? ' The customer phone number ' . $conversation->phone . ' is already saved. Do not ask for the phone number again. '
+                . 'If they want to speak to a person or ask for more details, tell them an executive will contact them shortly and ask if there is anything else they need help with.'
+            : 'If the user wants to speak to a person, asks for more details, or the message does not match any of the tools above, do not call a product tool. Instead, ask for their phone number and say an executive will contact them. '
+                . 'Only ask for a phone number for general questions not about products, brands, models, stock, availability, or orders, or when the user asks to speak to a person.';
+
+        $systemMessage = [
+            'role' => 'system',
+            'content' => 'You are a helpful customer service agent for Smartify Tech, a wholesaler of consumer electronics. '
+                . 'Keep answers short and friendly. '
+                . 'For product price questions call get_product_price. '
+                . 'For product stock/quantity questions call get_product_stock. '
+                . 'For product availability questions call search_products. '
+                . 'For listing all brands call get_typeof_products. '
+                . 'For listing models of a brand call get_modelfrom_type with the brand name. '
+                . 'For stock of all models in a brand call get_stock_by_type with the brand name. '
+                // . 'For order status call get_order_status. '
+                . 'When the user asks for a callback or provides a phone number call update_phone. '
+                . 'Pass the product name or ID the user gave as the argument, for example "apple iphone 11" or "Vivo V30". '
+                . 'If the user gives a short detail like "64GB" or "128GB" after you asked for it, combine it with the previous product they asked about. '
+                . $phoneNote
+                . ' Do not answer from your own knowledge. Base your answer only on the tool result. '
+                . 'If a product tool returns that the product is not found or not available, respond with "Invalid product name or no product available with this name." '
+                . 'Do not ask for a phone number for product questions. '
+                . 'If you asked for a phone number in the previous turn and the customer replies with a number, always call update_phone and never treat that number as a product or order ID. '
+                . 'When a tool returns a numbered list, keep each item on its own line and do not combine them into one long sentence. '
+                . 'Do not use Markdown formatting such as **. '
+                . 'If a tool says a product is out of stock, tell the customer the product is not available.',
         ];
+
+        $history = $conversation->messages()
+            ->oldest()
+            ->get()
+            ->map(fn ($m) => [
+                'role' => $m->role === 'agent' ? 'assistant' : 'user',
+                'content' => $m->message,
+            ])
+            ->values()
+            ->all();
+
+        $messages = array_merge([$systemMessage], $history);
 
         try {
             $response = $this->callOpenAi($apiKey, $messages);
@@ -71,6 +91,29 @@ class AiServices
             }
 
             $choice = $response['choices'][0]['message'] ?? [];
+
+            // If the model returns no content and no tool call, let it generate a direct reply
+            if (empty($choice['tool_calls']) && empty(trim($choice['content'] ?? ''))) {
+                if (!empty($conversation->phone)) {
+                    $messages[] = [
+                        'role' => 'system',
+                        'content' => 'No tool was applicable. The customer phone number ' . $conversation->phone . ' is already saved. Tell them an executive will contact them shortly and ask if there is anything else they need help with.',
+                    ];
+                } else {
+                    $messages[] = [
+                        'role' => 'system',
+                        'content' => 'No tool was applicable. Politely ask the customer for their phone number and say an executive will contact them shortly.',
+                    ];
+                }
+
+                $response = $this->callOpenAi($apiKey, $messages, 'none');
+
+                if ($response === null) {
+                    return 'Sorry, I could not process your request right now.';
+                }
+
+                $choice = $response['choices'][0]['message'] ?? [];
+            }
 
             // Handle tool calls, then ask the model again with the tool results
             if (!empty($choice['tool_calls'])) {
@@ -139,15 +182,21 @@ class AiServices
      * @param array $messages
      * @return array|null
      */
-    private function callOpenAi(string $apiKey, array $messages): ?array
+    private function callOpenAi(string $apiKey, array $messages, string $toolChoice = 'auto'): ?array
     {
+        $payload = [
+            'model' => config('services.openai.model'),
+            'messages' => $messages,
+            'tools' => $this->toolDefinitions(),
+        ];
+
+        if ($toolChoice !== 'auto') {
+            $payload['tool_choice'] = $toolChoice;
+        }
+
         $response = Http::withToken($apiKey)
             ->timeout(30)
-            ->post('https://api.openai.com/v1/chat/completions', [
-                'model' => config('services.openai.model'),
-                'messages' => $messages,
-                'tools' => $this->toolDefinitions(),
-            ]);
+            ->post('https://api.openai.com/v1/chat/completions', $payload);
 
         if ($response->failed()) {
             Log::error('OpenAI request failed', ['body' => $response->body()]);
@@ -171,7 +220,7 @@ class AiServices
             'get_product_stock' => $this->tools->getProductStock($arguments['product'] ?? ''),
             'get_product_price' => $this->tools->getProductPrice($arguments['product'] ?? ''),
             'search_products' => $this->tools->searchProducts($arguments['product_name'] ?? ''),
-            'get_order_status' => $this->tools->getOrderStatus($arguments['order_number'] ?? ''),
+            // 'get_order_status' => $this->tools->getOrderStatus($arguments['order_number'] ?? ''),
             'get_typeof_products' => $this->tools->getTypeOfProducts(),
             'get_modelfrom_type' => $this->tools->getModelFromType($arguments['type'] ?? ''),
             'get_stock_by_type' => $this->tools->getStockByType($arguments['type'] ?? ''),
@@ -209,7 +258,7 @@ class AiServices
                 'type' => 'function',
                 'function' => [
                     'name' => 'get_product_price',
-                    'description' => 'Get the price of a product by product name or product ID.',
+                    'description' => 'Get the price of a specific product. Use this whenever the user asks for a price, cost, how much, or pricing. Pass the product name or ID exactly as the user wrote it.',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
@@ -239,23 +288,23 @@ class AiServices
                     ],
                 ],
             ],
-            [
-                'type' => 'function',
-                'function' => [
-                    'name' => 'get_order_status',
-                    'description' => 'Get the status of a customer order by order number or order ID.',
-                    'parameters' => [
-                        'type' => 'object',
-                        'properties' => [
-                            'order_number' => [
-                                'type' => 'string',
-                                'description' => 'The order number or order ID, for example "O20260001".',
-                            ],
-                        ],
-                        'required' => ['order_number'],
-                    ],
-                ],
-            ],
+            // [
+            //     'type' => 'function',
+            //     'function' => [
+            //         'name' => 'get_order_status',
+            //         'description' => 'Get the status of a customer order by order number or order ID.',
+            //         'parameters' => [
+            //             'type' => 'object',
+            //             'properties' => [
+            //                 'order_number' => [
+            //                     'type' => 'string',
+            //                     'description' => 'The order number or order ID, for example "O20260001".',
+            //                 ],
+            //             ],
+            //             'required' => ['order_number'],
+            //         ],
+            //     ],
+            // ],
             [
                 'type' => 'function',
                 'function' => [
@@ -305,7 +354,7 @@ class AiServices
                 'type' => 'function',
                 'function' => [
                     'name' => 'update_phone',
-                    'description' => 'Save the customer phone number to the conversation when the customer provides it so an executive can contact them. Call this whenever a customer provides a phone number and never confuse phone numbers with product or order IDs.',
+                    'description' => 'Save the customer phone number to the conversation. Use this ONLY when the customer provides or confirms a phone number. Do not use this when the user wants to speak to a person or asks for more details; in those cases ask for the phone number instead.',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [

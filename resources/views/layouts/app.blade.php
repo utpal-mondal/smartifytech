@@ -204,7 +204,18 @@
                 messages.scrollTop = messages.scrollHeight;
             }
 
+            function showTyping() {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'chat-message agent typing';
+                wrapper.innerHTML = '<div class="chat-bubble"><span class="typing-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div><span class="chat-time">Now</span>';
+                messages.appendChild(wrapper);
+                messages.scrollTop = messages.scrollHeight;
+                return wrapper;
+            }
+
             function agentReply(text) {
+                const typing = showTyping();
+
                 fetch('/api/chat/message', {
                     method: 'POST',
                     headers: {
@@ -217,9 +228,11 @@
                         return response.json();
                     })
                     .then(function(data) {
+                        typing.remove();
                         addMessage(data.message, 'agent');
                     })
                     .catch(function() {
+                        typing.remove();
                         addMessage('Sorry, I could not process your request right now.', 'agent');
                     });
             }
