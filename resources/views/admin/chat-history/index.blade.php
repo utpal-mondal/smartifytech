@@ -10,7 +10,7 @@
 
             <div class="flex items-center justify-between bg-white rounded-xl shadow p-6">
                 <div>
-                    <h2 class="text-3xl font-extrabold text-gray-800">Enquiries</h2>
+                    <h2 class="text-3xl font-extrabold text-gray-800">Chat History</h2>
                     <p class="text-sm text-gray-500 mt-1">View all chat conversations from the website chatbox.</p>
                 </div>
             </div>

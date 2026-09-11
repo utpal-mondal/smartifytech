@@ -45,21 +45,20 @@ class AiServices
             [
                 'role' => 'system',
                 'content' => 'You are a helpful customer service agent for Smartify Tech, a wholesaler of consumer electronics. '
-                    . 'Keep answers short and friendly. When a customer asks about stock, quantity, or whether a product is in stock, '
-                    . 'use the get_product_stock tool. When the customer asks whether a product is available or wants to search for a product, '
-                    . 'use the search_products tool. When the customer asks about an order status, use the get_order_status tool. '
+                    . 'Keep answers short and friendly. When a customer asks about product price, stock, quantity, availability, or any product-specific detail, '
+                    . 'use one of the product tools: get_product_stock for a single product stock/quantity, get_product_price for a single product price, search_products to check availability, get_typeof_products for all brands, get_modelfrom_type for models in a brand, or get_stock_by_type for stock by brand. '
+                    . 'When the customer asks about an order status, use the get_order_status tool. '
                     . 'When the customer asks for all product types, brands, or categories, use the get_typeof_products tool. '
                     . 'When the customer asks for all models in a brand or product type, use the get_modelfrom_type tool with the type/brand argument. '
-                    . 'When the customer asks about stock or availability for all models in a brand or product type, '
-                    . 'use the get_stock_by_type tool with the type/brand argument. '
-                    . 'If a customer asks for information not covered by these tools, or wants to speak to a person, or wants more details, '
-                    . 'politely ask for their phone number and say our executive will contact them shortly. '
+                    . 'When the customer asks about stock or availability for all models in a brand or product type, use the get_stock_by_type tool with the type/brand argument. '
+                    . 'If a product tool returns that a product is not found or not available, respond with "Invalid product name or no product available with this name." Do not ask for a phone number for product questions. '
+                    . 'Only ask for a phone number when the customer has a general question not about products, brands, models, stock, availability, or orders, or when they explicitly ask to speak to a person. '
                     . 'If the customer provides a phone number, call the update_phone tool with the phone number. '
                     . 'If you asked for a phone number in the previous turn and the customer replies with a number, always call update_phone and never treat that number as a product or order ID. '
                     . 'Base your answer only on the tool result. '
                     . 'When a tool returns a numbered list, keep each item on its own line and do not combine them into one long sentence. '
                     . 'Do not use Markdown formatting such as **. '
-                    . 'If the tool says the product is out of stock or not available, tell the customer the product is not available.',
+                    . 'If a tool says a product is out of stock, tell the customer the product is not available.',
             ],
             ['role' => 'user', 'content' => $message],
         ];
@@ -170,6 +169,7 @@ class AiServices
     {
         return match ($name) {
             'get_product_stock' => $this->tools->getProductStock($arguments['product'] ?? ''),
+            'get_product_price' => $this->tools->getProductPrice($arguments['product'] ?? ''),
             'search_products' => $this->tools->searchProducts($arguments['product_name'] ?? ''),
             'get_order_status' => $this->tools->getOrderStatus($arguments['order_number'] ?? ''),
             'get_typeof_products' => $this->tools->getTypeOfProducts(),
@@ -193,6 +193,23 @@ class AiServices
                 'function' => [
                     'name' => 'get_product_stock',
                     'description' => 'Check whether a product is in stock and how many units are available.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'product' => [
+                                'type' => 'string',
+                                'description' => 'The product model name or product ID, for example "SM-1000".',
+                            ],
+                        ],
+                        'required' => ['product'],
+                    ],
+                ],
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_product_price',
+                    'description' => 'Get the price of a product by product name or product ID.',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [

@@ -5,13 +5,15 @@ namespace App\Services;
 use App\Models\Product;
 use App\Models\Order;
 use App\Models\ChatConversation;
+use App\Models\Brand;
+use App\Models\ChatbotProduct;
 
 class AiToolServices
 {
     /**
-     * Get the stock message for a product by ID or name/model.
+     * Get the stock message for a product by ID or name from the chatbot product catalog.
      *
-     * @param string $query Product ID or name/model
+     * @param string $query Product ID or name
      * @return string
      */
     public function getProductStock($query): string
@@ -19,12 +21,12 @@ class AiToolServices
         $query = trim($query);
 
         if (empty($query)) {
-            return 'Please provide a product name or ID.';
+            return 'Please provide a product name.';
         }
 
-        $product = $this->findProduct($query);
+        $product = $this->findChatbotProduct($query);
 
-        return $product ? $this->formatStock($product) : 'product out of stock';
+        return $product ? $this->formatChatbotProductStock($product) : 'Invalid product name or no product available with this name.';
     }
 
     /**
@@ -38,22 +40,46 @@ class AiToolServices
         $productName = trim($productName);
 
         if (empty($productName)) {
-            return 'Please provide a product name or ID.';
+            return 'Please provide a product name.';
         }
 
-        $product = $this->findProduct($productName);
+        $product = $this->findChatbotProduct($productName);
 
         if (!$product) {
-            return 'Product not found or not available.';
+            return 'Invalid product name or no product available with this name.';
         }
 
-        $quantity = (int) $product->quantity;
+        $stock = (int) $product->product_stock;
 
-        if ($quantity <= 0) {
-            return 'Product ' . $product->model . ' is not available.';
+        if ($stock <= 0) {
+            return 'Product ' . $product->product_name . ' is not available.';
         }
 
-        return 'Product ' . $product->model . ' is available, quantity: ' . $quantity;
+        return 'Product ' . $product->product_name . ' is available, quantity: ' . $stock;
+    }
+
+    /**
+     * Get the price of a product by ID or name from the chatbot product catalog.
+     *
+     * @param string $query Product ID or name
+     * @return string
+     */
+    public function getProductPrice($query): string
+    {
+        $query = trim($query);
+
+        if (empty($query)) {
+            return 'Please provide a product name.';
+        }
+
+        $product = ChatbotProduct::whereRaw('LOWER(product_name) LIKE ?', ['%' . strtolower($query) . '%'])           
+            ->first();
+
+        if (!$product) {
+            return 'Invalid product name or no product available with this name.';
+        }
+
+        return $this->formatChatbotProductPrice($product);
     }
 
     /**
@@ -86,7 +112,7 @@ class AiToolServices
      */
     public function getTypeOfProducts(): string
     {
-        $types = Product::distinct()->orderBy('type')->pluck('type')->filter()->all();
+        $types = Brand::orderBy('name')->pluck('name')->filter()->all();
 
         if (empty($types)) {
             return 'No product types or brands available.';
@@ -94,7 +120,7 @@ class AiToolServices
 
         $lines = [];
         foreach ($types as $index => $type) {
-            $lines[] = ($index + 1) . '. ' . ucfirst($type);
+            $lines[] = ($index + 1) . '. ' . ucwords(strtolower($type));
         }
 
         return "Available smartphone brands:\n" . implode("\n", $lines);
@@ -114,15 +140,21 @@ class AiToolServices
             return 'Please provide a brand or product type.';
         }
 
-        $models = Product::where('type', 'like', '%' . strtolower($type) . '%')
-            ->orderBy('model')
-            ->pluck('model')
+        $brand = Brand::whereRaw('LOWER(name) = ?', [strtolower($type)])->first();
+
+        if (!$brand) {
+            return 'brand Not Found.';
+        }
+
+        $models = ChatbotProduct::where('brand_id', $brand->id)            
+            ->orderBy('product_name')
+            ->pluck('product_name')
             ->unique()
             ->filter()
             ->all();
 
         if (empty($models)) {
-            return 'No models found for that brand or type.';
+            return 'No smartphone models found for ' . ucwords(strtolower($brand->name)) . '.';
         }
 
         $lines = [];
@@ -130,7 +162,7 @@ class AiToolServices
             $lines[] = ($index + 1) . '. ' . $model;
         }
 
-        return 'Models for ' . ucfirst($type) . ":\n" . implode("\n", $lines);
+        return 'Models for ' . ucwords(strtolower($brand->name)) . ":\n" . implode("\n", $lines);
     }
 
     /**
@@ -170,7 +202,7 @@ class AiToolServices
     }
 
     /**
-     * Save the customer's phone number to the conversation.
+     * Save the customer phone number to the conversation.
      *
      * @param ChatConversation $conversation
      * @param string $phone
@@ -204,7 +236,7 @@ class AiToolServices
             }
         }
 
-        $product = Product::where('model', $query)->first();
+        $product = Product::whereRaw('LOWER(model) = ?', [strtolower($query)])->first();
         if ($product) {
             return $product;
         }
@@ -212,6 +244,36 @@ class AiToolServices
         $products = Product::all();
         foreach ($products as $product) {
             if (!empty($product->model) && stripos($query, $product->model) !== false) {
+                return $product;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Find a chatbot product by numeric ID, exact product name, or product name contained in the query.
+     *
+     * @param string $query
+     * @return ChatbotProduct|null
+     */
+    private function findChatbotProduct(string $query): ?ChatbotProduct
+    {
+        if (is_numeric($query)) {
+            $product = ChatbotProduct::find($query);
+            if ($product) {
+                return $product;
+            }
+        }
+
+        $product = ChatbotProduct::whereRaw('LOWER(product_name) = ?', [strtolower($query)])->first();
+        if ($product) {
+            return $product;
+        }
+
+        $products = ChatbotProduct::all();
+        foreach ($products as $product) {
+            if (!empty($product->product_name) && stripos($query, $product->product_name) !== false) {
                 return $product;
             }
         }
@@ -250,6 +312,19 @@ class AiToolServices
     }
 
     /**
+     * Format the price response for a chatbot product.
+     *
+     * @param ChatbotProduct $product
+     * @return string
+     */
+    private function formatChatbotProductPrice(ChatbotProduct $product): string
+    {
+        $price = (float) $product->product_price;
+
+        return 'Product ' . $product->product_name . ' price is ' . number_format($price, 2);
+    }
+
+    /**
      * Format the stock response for a product.
      *
      * @param Product $product
@@ -264,5 +339,22 @@ class AiToolServices
         }
 
         return 'Product ' . $product->model . ' is in stock, quantity: ' . $quantity;
+    }
+
+    /**
+     * Format the stock response for a chatbot product.
+     *
+     * @param ChatbotProduct $product
+     * @return string
+     */
+    private function formatChatbotProductStock(ChatbotProduct $product): string
+    {
+        $stock = (int) $product->product_stock;
+
+        if ($stock <= 0) {
+            return 'product out of stock';
+        }
+
+        return 'Product ' . $product->product_name . ' is in stock, quantity: ' . $stock;
     }
 }
